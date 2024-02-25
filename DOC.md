@@ -65,9 +65,9 @@
 
    Integer constants can be assigned to wire arrays. Integers have the following format:
 
-   *<num bits>*_<radix>_*<number>*
+   *num_bits* *radix* *number*
 
-   where *<radix>* can be `d` (decimal), `h` (hexadecimal) or `o` (octal). Less significant bits are assigned to lower indices first:
+   where *radix* can be `d` (decimal), `h` (hexadecimal) or `o` (octal). Less significant bits are assigned to lower indices first:
 
        porta = 3d3;    //porta[0] = `1; porta[1] = `1; porta[2] = `0;
 
@@ -136,7 +136,16 @@
 
      *signal/out port name* = *signal expression*;
 
-   All these statements are (theoretically) executed in parallel so ordering doesn't matter. In VHDL/Verilog you must first define all your signals and declare their type before using it. Here signals aren't declared in a separate line, but they are defined when you use it for the first time. However, each signal/ouput port can appear at the left side of `=` symbol **only once**, so the following code would issue an error
+   All these statements represent wire connections so ordering doesn't matter, moreover these statements are continuously evaluated until each signal/output port has a value. For example with the following code
+
+       A = B;
+       B = `1;
+       C = A;
+
+   `A`, `B` and `C` would all be equal to <code>`1</code>.
+
+
+   In VHDL/Verilog you must first define all your signals and declare their type before using it. Here signals aren't declared in a separate line, but they are defined when you use it for the first time. However, each signal/ouput port can appear at the left side of `=` symbol **only once**, so the following code would issue an error
 
        A = `1;
        A = `0;
@@ -246,7 +255,7 @@
   
          [multiplex[0].bus, multiplex[1].bus, multiplex[2].bus]
      
-6. `sync` signals and sequential coding
+7. `sync` signals and sequential coding
 
    Parallel coding defined in the previous part has a very restrictive requirement: no cyclic assigments. For example this code wouldn't compile
 
