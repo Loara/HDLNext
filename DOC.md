@@ -53,7 +53,7 @@
 
    Arrays can be accessed in reverse order with the `rev` unary operator:
 
-       portt = rev(portr[0:2]);    //portt[0] = portr[2]; portt[1] = portr[1]; portt[2] = portr[0];
+       portt = rev portr[0:2];    //portt[0] = portr[2]; portt[1] = portr[1]; portt[2] = portr[0];
 
    Array values can be declared with `[`, `]` brackets:
 
