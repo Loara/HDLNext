@@ -1,14 +1,13 @@
 comp multiplex {
   in {
     adr;
-    val0;
-    val1;
+    val: [2];
   }
   out {
     out;
   }
   impl {
-    out = (adr and val1) or (not adr and val0);
+    out = (adr and val[1]) or (not adr and val[0]);
   }
 }
     
@@ -25,8 +24,7 @@ comp CELL {
   impl {
     sync(clock) inner_data_store = alloc multiplex {
       adr = write_en;
-      val0 = ^inner_data_store;
-      val1 = write_data;
+      val = [^inner_data_store,  write_data];
     }.out;
     sync(clock) inner_data_prep = ^inner_data_store;
     read_data = ^inner_data_prep; //If value is overridden then read the previous value
@@ -54,6 +52,6 @@ comp FIFO {
     sync(clock) has_data = push_en or (^has_data and not pull_en);
     full = ^has_data and push_en and not pull_en;
     empty = not ^has_data and pull_en and not push_en;
-    override = not ^has_data and push_en;
+    override = (not ^has_data and push_en) or (^has_data and push_en and pull_en);
 }
     
