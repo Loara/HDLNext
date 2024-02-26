@@ -16,10 +16,12 @@ comp CELL {
   in {
     write_en;
     write_data;
-    clock;
   }
   out {
     read_data;
+  }
+  trigger {
+    clock;
   }
   impl {
     sync(clock) inner_data_store = alloc multiplex {
@@ -36,12 +38,14 @@ comp FIFO {
     pull_en;
     push_en;
     push_data;
-    clock;
   }
   out {
     pull_data;
     full;
     empty;
+  }
+  trigger {
+    clock;
   }
   impl {
     pull_data = alloc CELL {

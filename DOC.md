@@ -8,9 +8,9 @@
 
 2. Wire types and constants
    
-   In VHDL/Verilog every port/signal must have a type. Usually you would assign to a single wire connection a logical type that also handles a wide class of states other than `0` and `1`, for example: high impedance `Z`, uninitialized `U`, unknown/runtime error `X`, anything goes `-`. In VHDL you can use `std_logic`/`std_ulogic` type whereas in Verilag you can use `wire`. In this language such type is called `wire` like in Verilog.
+   In VHDL/Verilog every port/signal must have a type. Usually you would assign to a single wire connection a logical type that also handles a wide class of states other than `0` and `1`, for example: high impedance `Z`, uninitialized `U`, unknown/runtime error `X`, anything goes `-`. In VHDL you can use `std_logic`/`std_ulogic` type whereas in Verilag you can use `wire`. In this language such type is called `logic` like in Verilog.
 
-   Currently all the following constants have type `wire`:
+   Currently all the following constants have type `logic`:
 
    + <code>`0</code>: logic state 0;
    + <code>`1</code>: logic state 1;
@@ -28,15 +28,15 @@
 
    [*length*] *type*
 
-   if you omit *type* then it is assumed `wire`. Moreover, *type* can itself be another array
+   if you omit *type* then it is assumed `logic`. Moreover, *type* can itself be another array
 
-       ports : [8]wire;    //declares 8 wire ports and threat them as a single port with eight entries numbered from 0 to 7
+       ports : [8]logic;    //declares 8 logic ports and threat them as a single port with eight entries numbered from 0 to 7
        portt : [8];    //same
-       portu : [2][7];    // an array with length 2 of arrays of wires with length 7
+       portu : [2][7];    // an array with length 2 of arrays of logics with length 7
 
    Indexes here are reversed in type definition in order to avoid C-multidimensional array reverse indices issue:
 
-       port : [2][7] wire;
+       port : [2][7] logic;
 
        port[0][1]    //ok
        port[1][5]    //ok
@@ -47,23 +47,31 @@
 
        porta = ports[1];    //set porta std_ulogic signal to the element of ports with index 1
 
-    or you can access a continuous range of elements with the : operator
+   or you can access a continuous range of elements with the : operator
 
-       portt = ports[4:6];    //equivalent to portt[0]=ports[4]; portt[1]=ports[5]; portt[2]=ports[6];
+       portt = ports[6:4];    //equivalent to portt[0]=ports[4]; portt[1]=ports[5]; portt[2]=ports[6];
 
-   Arrays can be accessed in reverse order with the `rev` unary operator:
+   Ranges have the following format:
 
-       portt = rev portr[0:2];    //portt[0] = portr[2]; portt[1] = portr[1]; portt[2] = portr[0];
+   *max_index* : *min_index*
 
-   Array values can be declared with `[`, `]` brackets:
+   with *max_index* greater or equal to *min_index*. Moreover, you can access an array in a reverse order by using *inverse ranges* which can be defined in the following way:
 
-       porta = [`0, `1, `Z];    //porta[0] = `0; porta[1] = `1; porta[2] = `Z;
+   *min_index* :: *max_index*
 
-   moreover, wire array constants can be also declared between `"` symbols: 
+   example:
 
-       porttt = "01U";    //equivalent to portt[0]=`0; portt[1]=`1; portt[2]=`U;
+       portt = portr[0::2];    //portt[0] = portr[2]; portt[1] = portr[1]; portt[2] = portr[0];
 
-   Integer constants can be assigned to wire arrays. Integers have the following format:
+   Array values can be declared with `[`, `]` brackets with items separated by commas, however despite programming languages like C array indexing goes from right to left instead of from left to right:
+
+       porta = [`0, `1, `Z];    //porta[2] = `0; porta[1] = `1; porta[0] = `Z;
+
+   Moreover, logic array constants can be also declared between `"` symbols, again from right to left: 
+
+       porttt = "01U";    //equivalent to portt[2]=`0; portt[1]=`1; portt[0]=`U;
+
+   Logical integer constants (which are different from integer constants in array indices) can be assigned to logic arrays. They have the following format:
 
    *num_bits* *radix* *number*
 
@@ -82,6 +90,9 @@
      out {
        //output ports
      }
+     trigger {
+       //trigger ports
+     }
      impl {
        //implementation
      }
@@ -96,6 +107,9 @@
      }
      out {
        //output ports
+     }
+     trigger {
+       //triggers
      }
    }
    </code></pre>
@@ -112,21 +126,21 @@
 
    Designs are also useful for templates/generics.
 
-   Ports must be defined in `in` (for input ports) and `out` (for output ports) subblocks in `comp` or `design` blocks (*TODO*: introduce `inout` ports). A port definition follows this syntax:
+   Ports must be defined in `in` (for input ports), `out` (for output ports) or `trigger` (clock and reset signals) subblocks in `comp` or `design` blocks (*TODO*: introduce `inout` ports). A port definition follows this syntax:
 
    <pre><code>
       <i>port_name</i> : <i>type_name</i>;
    </code></pre>
 
-   If you don't specify *type_name* then `wire` is assumed. Example:
+   If you don't specify *type_name* then `logic` is assumed. Example:
 
        design multiplex_4_1 {
          in {
-           adr : [2]wire;
+           adr : [2]logic;
            input : [4];
          }
          out {
-           output;    //assumed wire
+           output;    //assumed logic
          }
        }
    
@@ -167,22 +181,22 @@
          A = (not B) and C and (D xor `1);
          ...
 
-     these operators works both on single `wire` types, arrays of `wire`, array of array of `wire` and so on, by applying the chosen operation on each element. However, both the arguments must have the same type because this language is strongly typed.
+     these operators works both on single `logic` types, arrays of `logic`, array of array of `logic` and so on, by applying the chosen operation on each element. However, both the arguments must have the same type because this language is strongly typed.
    - Range operator `[min:max]` as described before;
    - Array composition `[...]`:
 
-         A = `0;  //type wire
+         A = `0;  //type logic
          B = `1;  //ditto
-         C = [A, B]; //equal to "01", type [2]wire
-         D = [A];  //type [1]wire, which is different from wire
+         C = [A, B]; //equal to "01", type [2]logic
+         D = [A];  //type [1]logic, which is different from logic
      
    - Array concatenation `~`:
 
-         A = "0";  //type [1]wire
-         B = "1";  //type [1]wire
-         C = A ~ B;  //equal to "01", type [2]wire
+         A = "0";  //type [1]logic
+         B = "1";  //type [1]logic
+         C = A ~ B;  //equal to "01", type [2]logic
   
-   - Component allocation `alloc`. This operator is a bit complex and needs first an example. Suppose we have already defined the following adder component:
+   - Component allocation `new`. This operator is a bit complex and needs first an example. Suppose we have already defined the following adder component:
 
          comp ADDER {
            in {
@@ -194,33 +208,38 @@
              sum;
              out_rem;
            }
+           trigger {
+             clock;
+           }
            impl {
              ...
            }
          }
 
-     and we want to instantiate it in another component. You can do it thanks to the `alloc` operator in the following way:
+     and we want to instantiate it in another component. You can do it thanks to the `new` operator in the following way:
 
-         adr = alloc ADDER {
+         adr = new ADDER {
              a = C;
              b = D;
              in_rem = `0;
+             clock = clock;
            };
 
-     where `C`, `D`, `E` are other signals with compatible types. Now `adr` is not a `wire` or array signals, so you can put it directly in other signal expression. To take its output you must use the `.` operator:
+     where `C`, `D`, `E` are other signals with compatible types. Now `adr` is not a `logic` or array signals, so you can put it directly in other signal expression. To take its output you must use the `.` operator:
 
          sig = adr.sum;    //reads the sum port of ADDER
          sig_rep = not adr.out_rem;  //uses the out_rem port of ADDER
 
-     if you need only one output value then wyou can apply the `.` operator directly on the valued returned by `alloc`:
+     if you need only one output value then wyou can apply the `.` operator directly on the valued returned by `new`:
 
-         sig = alloc ADDER {
+         sig = new ADDER {
              a = C;
              b = D;
              in_rem = `0;
+             clock = clock;
            }.sum;
 
-     The `alloc` operator also allows you to instantiate an array of components at the same time. Consider for example the following component:
+     The `new` operator also allows you to instantiate an array of components at the same time. Consider for example the following component:
   
          comp MPX {
            in {
@@ -230,20 +249,25 @@
            out {
              bus;
            }
+           trigger {
+             clock;
+           }
            impl { ... }
          }
   
      We can allocate three `MPX` components in this way:
   
-         multiplex = alloc [3]MPX {adr = A; data = D;};
+         multiplex = new [3]MPX {adr = A; data = D; clock = clock;};
   
      which is equivalent to the following code
   
-         multiplex = [ alloc MPX {adr = A[0]; data = D[0];},
-                        alloc MPX {adr = A[1]; data = D[1];},
-                        alloc MPX {adr = A[2]; data = D[2];}];
+         multiplex = [ new MPX {adr = A[0]; data = D[0]; clock = clock;},
+                        new MPX {adr = A[1]; data = D[1]; clock = clock;},
+                        new MPX {adr = A[2]; data = D[2];}];
   
-     Notice that when allocating `N` copies of `MPX` with a single `alloc` instruction the input port `adr` type becomes `[N]wire` and `data` type becomes `[N][2]wire` (a `[N]` is concatenated at each input type). Now `multiplex` is an "array of components" each of them can be accessed by specifying its index:
+     Notice that when allocating `N` copies of `MPX` with a single `new` instruction the input port `adr` type becomes `[N]logic` and `data` type becomes `[N][2]logic` (a `[N]` is concatenated at each input type) but the trigger port `clock` has its type unchanged since the signal is shared between all the instances of `MPX`. Indeed the main difference between an `in` port and a `trigger` port is that `trigger` ports would be shared among all their instances after an array allocation, whereas `in` (and `out`) ports remain independent. 
+
+     Now `multiplex` is an "array of components" each of them can be accessed by specifying its index:
   
          dat = multiplex[1].bus;
   
@@ -286,12 +310,13 @@
 
        $var = true;    //boolean variable
        $num = 3;    //integer variable.
-       $range = 0:3    //range
+       $range = 3:0    //range
 
    You can use standard arithmetic operations `+, -, *, /`, logic operations `&&, ||, !`, comparisons `<, >, ==, !=, <=, >=`, the length function `#len(...)` that returns the length of specified range and the *range shift* operations `>>, <<` that shift the specified ranges:
 
-       [0:2] >> 3    //expands to [3:5]
-       [3:7] << 1    //expands to [2:6]
+       2:0 << 3    //expands to 5:3
+       7:3 >> 1    //expands to 6:2
+       3::5 << 2   //expands to 1::3
 
    *TODO*: introduce functions. The `=` operator assign values to variables. You can place these variables in wire code in order to place their value inside the code. Let for example
 
@@ -301,9 +326,9 @@
 
        port[3]
 
-   during wire code interpretation. But if we have set `$x = 0:4;` then it becomes
+   during wire code interpretation. But if we have set `$x = 4:0;` then it becomes
 
-       port[0:4]
+       port[4:0]
 
    which is still valid. To conditionally evaluate code you can use the following *if* statement:
    <pre><code>
@@ -324,7 +349,7 @@
       ....
       }
    </code></pre>
-   that works like a classical `for` loop and puts values in the `[...]` expression. Moreover, you can also use the `#repeat_range` expression:
+   that works like a classical `for` loop and concatenates each value. Moreover, you can also use the `#repeat_range` expression:
    <pre><code>
       #repeat_range $range in (<i>range expr</i>; <i>len expr</i>) {
       ....
@@ -332,16 +357,16 @@
    </code></pre>
    which divides *range expr* into many subranges of length __at most__ *len expr* and assigns each to `$range` sequentially. For example
 
-       #repeat_range $rng in ([0:12]; 5) {
-         port[$rng] xor tris[$rng >> 1]
+       #repeat_range $rng in ([12:0]; 5) {
+         port[$rng] xor tris[$rng << 1]
        }
    
    expands to
 
-       [port[0:4] xor tris[1:5],
-        port[5:9] xor tris[6:10],
-        port[10:12] xor tris[11:13]]
-   
+       (port[12:10] xor tris[13:11])
+       ~ (port[9:5] xor tris[10:6])
+       ~ (port[4:0] xor tris[5:1])
+
 11. Template parameters and autodetection
 
     *Work in progress*.
