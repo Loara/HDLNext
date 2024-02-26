@@ -343,7 +343,22 @@
       ....
       }
    </code></pre>
-   like in many other programming languages. To repeat code you can use the `#repeat` statement:
+   like in many other programming languages.
+
+   Use of `[..]` and `~` to assign array values can be not so practical in certain situations. In such cases you can use the `#array` function
+
+       portt = #array {
+         0 = `1;
+         4::5 = [idx, `0];
+         1 = tris[1] or tris[0];
+         3:2 = "10";
+       };
+
+       //which is equivalent to
+
+       portt = [`0, idx] ~ "10" ~ [tris[1] or tris[0], `1];
+
+   To repeat code you can use the `#repeat` statement:
    <pre><code>
       #repeat $index in <i>range expression</i> {
       ....
