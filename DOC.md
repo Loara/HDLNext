@@ -263,7 +263,7 @@
   
          multiplex = [ new MPX {adr = A[0]; data = D[0]; clock = clock;},
                         new MPX {adr = A[1]; data = D[1]; clock = clock;},
-                        new MPX {adr = A[2]; data = D[2];}];
+                        new MPX {adr = A[2]; data = D[2]; clock = clock;}];
   
      Notice that when allocating `N` copies of `MPX` with a single `new` instruction the input port `adr` type becomes `[N]logic` and `data` type becomes `[N][2]logic` (a `[N]` is concatenated at each input type) but the trigger port `clock` has its type unchanged since the signal is shared between all the instances of `MPX`. Indeed the main difference between an `in` port and a `trigger` port is that `trigger` ports would be shared among all their instances after an array allocation, whereas `in` (and `out`) ports remain independent. 
 
@@ -277,7 +277,7 @@
   
      is equivalent to
   
-         [multiplex[0].bus, multiplex[1].bus, multiplex[2].bus]
+         [multiplex[2].bus, multiplex[1].bus, multiplex[0].bus]
      
 7. `sync` signals and sequential coding
 
@@ -302,31 +302,46 @@
 
    However, this could be not suitable for real hardware because hardware delays in `clock` signal may pollute both `A` and `B`.
    
-9. Automatic code generation
+9. Metalanguage
 
-    The preceding instructions allows you to design your hardware. However, for real projects you have to deal with tons of signals and ports or repetitive code. For these reasons a second-order language has been developed in order to help programmers to generate large values of repetitive code.
+    The preceding instructions allows you to describe your components and interconnections. However, for real projects you have to deal with tons of signals and ports or repetitive code. For these reasons a second-order language has been developed in order to help programmers to generate large values of repetitive code. This language is called *metalanguage* for simplicity
 
-   In this new language instructions are evaluated sequentially, after the code has been scanned and tokenized but before wire code is interpreted. Variables here must start with the `$` symbol and currently they can be only boolean, nonnegative integers and range specifications:
+   In metalanguage instructions are evaluated sequentially, after the code has been scanned and tokenized but before wire code is interpreted. Variables are declared with the following syntax:
 
-       $var = true;    //boolean variable
-       $num = 3;    //integer variable.
-       $range = 3:0    //range
+       #let var = expression;
 
-   You can use standard arithmetic operations `+, -, *, /`, logic operations `&&, ||, !`, comparisons `<, >, ==, !=, <=, >=`, the length function `#len(...)` that returns the length of specified range and the *range shift* operations `>>, <<` that shift the specified ranges:
+   and currently they can be only
+   + booleans
+   + nonnegative integers
+   + ranges
+   + components
+  
+  For example:   
+
+       #let var = true;    //boolean variable
+       #let num = 3;    //integer variable.
+       #let range = 3:0;    //range
+       #let comp = MULTIPLEX;    //a component
+
+   You can use standard arithmetic operations `+, -, *, /`, logic operations `&&, ||, !`, comparisons `<, >, ==, !=, <=, >=`, the length function `$len(...)` that returns the length of specified range and the *range shift* operations `>>, <<` that shift the specified ranges:
 
        2:0 << 3    //expands to 5:3
        7:3 >> 1    //expands to 6:2
        3::5 << 2   //expands to 1::3
 
-   *TODO*: introduce functions. The `=` operator assign values to variables. You can place these variables in wire code in order to place their value inside the code. Let for example
+   *TODO*: introduce functions. You can evaluate a metalanguage expression and put its value in your code by enclosing the expression between `$(` annd `)`:
+
+       $( expression )
+
+   when `expression` is just a single variable then you can remove `(` and `)`. Let for example
 
        port[$x]
 
-   where `$x` is a variable previously assigned. Indeed since variables are evaluated sequentially ordering here matters, so in order to use `$x` in your wire code you sould have assigned a value at least once. For example if we've set `$x = 2;` previously then the preceding code would become
+   and assume we have set `#let x = 3;` before. Then after metalanguage evaluation the preceding line becomes
 
        port[3]
 
-   during wire code interpretation. But if we have set `$x = 4:0;` then it becomes
+   But if we have set `#let x = 4:0;` then it becomes
 
        port[4:0]
 
@@ -360,20 +375,20 @@
 
    To repeat code you can use the `#repeat` statement:
    <pre><code>
-      #repeat $index in <i>range expression</i> {
+      #repeat <i>index</i> in <i>range expression</i> {
       ....
       }
    </code></pre>
    that works like a classical `for` loop and concatenates each value. Moreover, you can also use the `#repeat_range` expression:
    <pre><code>
-      #repeat_range $range in (<i>range expr</i>; <i>len expr</i>) {
+      #repeat_range <i>range</i> in (<i>range expr</i>; <i>len expr</i>) {
       ....
       }
    </code></pre>
-   which divides *range expr* into many subranges of length __at most__ *len expr* and assigns each to `$range` sequentially. For example
+   which divides *range expr* into many subranges of length __at most__ *len expr* and assigns each to `range` sequentially. For example
 
-       #repeat_range $rng in ([12:0]; 5) {
-         port[$rng] xor tris[$rng << 1]
+       #repeat_range rng in ([12:0]; 5) {
+         port[$rng] xor tris[$(rng << 1)]
        }
    
    expands to
@@ -384,4 +399,38 @@
 
 11. Template parameters and autodetection
 
-    *Work in progress*.
+    Components can have template parameters, which are metalanguage variables declared in a `comp` block between `!(` and `)` after the component name. The following code define Multiplex components for an arbitrary number of inputs:
+
+        comp MULTIPLEX ! (
+          N : integer;    //N is an integer variable
+        ){
+          in {
+            adr : [$N];
+            val : [$(pow2(N))];
+          }
+          out {
+            out;
+          }
+          impl {
+            #if N == 0 {
+              out = val[0];
+            }
+            #elif N == 1 {
+              out = (adr[0] and val[1]) or (not adr[0] and val[0]);
+            }
+            #else {
+              T = new MULTIPLEX!(N-1){
+                adr = adr[$(N-2):0];
+                val = val[$(pow2(N-1)-1):0];
+              };
+              B = new MULTIPLEX!(N-1){
+                adr = adr[$(N-2):0];
+                val = val[$(pow2(N)-1):$(pow2(N-1))];
+              };
+              out = new MULTIPLEX!(1){
+                adr = adr[$(N-1):$(N-1)];
+                val = [T.out, B.out];
+               }.out;
+            }
+          }
+        }
