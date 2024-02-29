@@ -336,7 +336,7 @@
 
    However, this could be not suitable for real hardware because hardware delays in `clock` signal may pollute both `A` and `B`.
    
-9. Metalanguage
+8. Metalanguage
 
     The preceding instructions allows you to describe your components and interconnections. However, for real projects you have to deal with tons of signals and ports or repetitive code. For these reasons a second-order language has been developed in order to help programmers to generate large values of repetitive code. This language is called *metalanguage* for simplicity
 
@@ -413,25 +413,18 @@
       ....
       }
    </code></pre>
-   that works like a classical `for` loop and concatenates each value. Moreover, you can also use the `#repeat_range` expression:
-   <pre><code>
-      #repeat_range <i>range</i> in (<i>range expr</i>; <i>len expr</i>) {
-      ....
-      }
-   </code></pre>
-   which divides *range expr* into many subranges of length __at most__ *len expr* and assigns each to `range` sequentially. For example
+   that works like a classical `for` loop and concatenates each value with `~`. For example
 
-       #repeat_range rng in ([12:0]; 5) {
-         port[$rng] xor tris[$(rng << 1)]
+       #repeat i in [4::0] {
+         [aut[$i]]
        }
-   
-   expands to
+       
+   is equivalent to
 
-       (port[12:10] xor tris[13:11])
-       ~ (port[9:5] xor tris[10:6])
-       ~ (port[4:0] xor tris[5:1])
+       [aut[4]] ~ [aut[3]] ~ [aut[2]] ~ [aut[1]] ~ [aut[0]]
+       
 
-11. Template parameters and autodetection
+9. Template parameters and autodetection
 
     Components can have template parameters, which are metalanguage variables declared in a `comp` block between `!(` and `)` after the component name. The following code define Multiplex components for an arbitrary number of inputs:
 
