@@ -1,0 +1,16 @@
+comp merge ! (
+  T : type;  //type variables, experimental
+  R : integer;
+){
+  in {
+    in : $T;
+  }
+  out {
+    out : [$R]$T;
+  }
+  impl {
+    out = #repeat i in $(R-1):0 {
+      [in]
+    }
+  }
+}
