@@ -1,4 +1,4 @@
-comp DELAY ($T : integer) {
+comp DELAY ! ($T : integer;) {
   in {
     in;
   }
