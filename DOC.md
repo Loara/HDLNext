@@ -103,33 +103,7 @@
      }
    }
    </code></pre>
-   which is very different from VHDL/Verilog because they force you to separate the model and the implementation. However, you can achieve the same outcome by using `design`:
-
-   <pre><code>
-   design <i>des_name</i> {
-     in {
-       //input ports
-     }
-     out {
-       //output ports
-     }
-     trigger {
-       //triggers
-     }
-   }
-   </code></pre>
-
-   which can be later associated to one or more effective implementations:
-   
-   <pre><code>
-   comp <i>name</i> : <i>des_name</i> {
-     impl {
-       //implementation
-     }
-   }
-   </code></pre>
-
-   Designs are also useful for templates/generics.
+   which is very different from VHDL/Verilog because they force you to separate the model and the implementation. 
 
    Ports must be defined in `in` (for input ports), `out` (for output ports) or `trigger` (clock and reset signals) subblocks in `comp` or `design` blocks (*TODO*: introduce `inout` ports). A port definition follows this syntax:
 
@@ -148,8 +122,63 @@
            output;    //assumed logic
          }
        }
+
+   You can also define a `design`, which is simply an interface for a component that can be implemented in multiple ways. For example a 2-to-1 multiplex, which can be implemented with `and` and `or` logic ports or with tri-state buffers. Designs are defined in the following way:
+
+   <pre><code>
+   design <i>des_name</i> {
+     in {
+       //input ports
+     }
+     out {
+       //output ports
+     }
+     trigger {
+       //triggers
+     }
+   }
+   </code></pre>
+
+   which can be later associated to one or more effective implementations:
    
-5. Signals and parallel coding
+   <pre><code>
+   comp <i>comp_name</i> {
+     in {...}
+     out {...}
+     trigger {...}
+     impl {...}
+     design <i>design_name</i> {
+       in { 
+          <i>comp_in_port</i> = <i>design_in_ports_expression</i>;
+          ....
+       }
+       out { 
+          <i>design_out_port</i> = <i>comp_out_ports_expression</i>;
+          ....
+       }
+       in { 
+          <i>comp_trigger_port</i> = <i>design_trigger_ports_expression</i>;
+          ....
+       }
+     }
+   }
+   </code></pre>
+
+   A single component can implement multiple `design` with same or different mappings. If the mappings are trivial (e.g. each port in comp/design is connected to the only port in design/comp with the same same) then you can remove the body of design implementation block:
+   
+   <pre><code>
+   comp <i>comp_name</i> {
+     in {...}
+     out {...}
+     trigger {...}
+     impl {...}
+     design <i>design_name</i>;
+   }
+   </code></pre>
+
+   Designs are also useful for templates/generics.
+   
+6. Signals and parallel coding
 
    Inside the `impl` subblock you put all the logical ports, connections and components you need in order to implement the behaviour of your component. This block consists in a list of assigments on the following form:
 
@@ -406,8 +435,20 @@
 
     Components can have template parameters, which are metalanguage variables declared in a `comp` block between `!(` and `)` after the component name. The following code define Multiplex components for an arbitrary number of inputs:
 
+        design multiplex_2_1 {
+          in {
+            adr;
+            in0;
+            in1;
+          }
+          out {
+            out;
+          }
+        }
+    
         comp MULTIPLEX ! (
           N : integer;    //N is an integer variable
+          M : design multiplex_2_1;  //M is a component variable
         ){
           in {
             adr : [$N];
@@ -420,9 +461,6 @@
             #if N == 0 {
               out = val[0];
             }
-            #elif N == 1 {
-              out = (adr[0] and val[1]) or (not adr[0] and val[0]);
-            }
             #else {
               T = new MULTIPLEX!(N-1){
                 adr = adr[$(N-2):0];
@@ -432,9 +470,10 @@
                 adr = adr[$(N-2):0];
                 val = val[$(pow2(N)-1):$(pow2(N-1))];
               };
-              out = new MULTIPLEX!(1){
-                adr = adr[$(N-1):$(N-1)];
-                val = [T.out, B.out];
+              out = new $M {
+                adr = adr[$(N-1)];
+                in1 = T.out;
+                in0 = B.out;
                }.out;
             }
           }
