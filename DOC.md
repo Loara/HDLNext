@@ -79,6 +79,11 @@
 
        porta = 3d3;    //porta[0] = `1; porta[1] = `1; porta[2] = `0;
 
+   The last basic type is `void`. This type is very strange because it has only one possible value, which is `""`. Since it doen't hold or bring any information signals and ports of such type are never synthetized and can be safetly ignored when the component is instantiated. However, this type is useful in metaprogramming due to the following conversion rules:
+   + `[N] void` is equal to `void` for every `N >= 0`;
+   + `[0] ty` is equal to `void` for any type `ty`;
+   + if `M < N` then `port[M:N]` and `port[N::M]` are equal to `""`.
+
 4. Components and implementations
 
    A component in this language can be define in the following way: 
