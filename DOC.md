@@ -7,6 +7,14 @@
    **EDIT:** I've taken a look at Lucid, which have a very similar syntax to this language and tries to achieve the same goal but it has already been adopted by some FPGA manifacturers. However, some things are handled differently, for example synchronized signals.
 
 2. Wire types and constants
+
+   This language is strongly types, that is every port and every wire must have a type and two wires/ports can be connected if and only if they have the same type. Currently the following types are defined:
+
+   + Basic types
+     - `logic`
+     - `void`
+   + Arrays
+   + Struct
    
    In VHDL/Verilog every port/signal must have a type. Usually you would assign to a single wire connection a logical type that also handles a wide class of states other than `0` and `1`, for example: high impedance `Z`, uninitialized `U`, unknown/runtime error `X`, anything goes `-`. In VHDL you can use `std_logic`/`std_ulogic` type whereas in Verilag you can use `wire`. In this language such type is called `logic` like in Verilog.
 
@@ -14,14 +22,11 @@
 
    + <code>`0</code>: logic state 0;
    + <code>`1</code>: logic state 1;
-   + <code>`Z</code>: high impedance;
-   + <code>`U</code>: uninitialized data;
    + <code>`X</code>: unknown value, runtime error;
-   + <code>`-</code>: unknown value that can be safetly ignored.
      
    ```
        port1 = `1;    //assigns logic state 1 to port1
-       port2 = `Z;     //assign high impedance state to port2
+       port2 = `X;     //assign runtime error to port2 which propagates to other components
    ```
 
    You can define array types with the following syntax:
@@ -69,7 +74,7 @@
 
    Moreover, logic array constants can be also declared between `"` symbols, again from right to left: 
 
-       porttt = "01U";    //equivalent to portt[2]=`0; portt[1]=`1; portt[0]=`U;
+       porttt = "01X";    //equivalent to portt[2]=`0; portt[1]=`1; portt[0]=`X;
 
    Logical integer constants (which are different from integer constants in array indices) can be assigned to logic arrays. They have the following format:
 
@@ -84,114 +89,70 @@
    + `[0] ty` is equal to `void` for any type `ty`;
    + if `M < N` then `port[M:N]` and `port[N::M]` are equal to `""`.
 
-4. Components and implementations
+   Structs are like structs in C, in particular they first have to be declared before use:
+
+       struct A {
+         porta : [2],
+         portb : [3][4],
+         portc,    //type logic
+       }
+
+       portc : A   //now portc has type A
+       portc.porta   //this has type [2]
+
+    Structs are used primarly to declare components as we will see in next section. Arrays of structures have an interesting behaviour: let consider a signal `a` with type `[2]A` where `A` is the struct defined before. Then you can see `a` both as an array of structures so `a[0]` is legal with type `A` and `a[0].portc` has type `logic` and as a new structure similar to `A` buth with fields doubled so `a.portc` is still valid but with type `[2]logic` now. In general for every index `i` and every field `fld` of a struct `ST` then the following equivalence holds fhr every signal `sig` of type `[N]ST`:
+
+     sig[i].fld == sig.fld[i]
+
+    The same holds for arrays of arrays of structs and similar.
+
+4. Components
 
    A component in this language can be define in the following way: 
    <pre><code>
-   comp <i>name</i> {
-     in {
-       //input ports
-     }
-     out {
-       //output ports
-     }
-     trigger {
-       //trigger ports
-     }
-     impl {
-       //implementation
-     }
+   comp <i>name</i> { <i>input ports</i> } -> <i>return type</i> {
+     <i>assigments</i>
    }
    </code></pre>
-   which is very different from VHDL/Verilog because they force you to separate the model and the implementation. 
-
-   Ports must be defined in `in` (for input ports), `out` (for output ports) or `trigger` (clock and reset signals) subblocks in `comp` or `design` blocks (*TODO*: introduce `inout` ports). A port definition follows this syntax:
+   which is very different from VHDL/Verilog. Each assigment in component body must be terminated by `;` and can assume one of the following forms:
 
    <pre><code>
-      <i>port_name</i> : <i>type_name</i>;
+     <i>signal name</i> = <i>expression</i>  //simple signal assigment
+     sync(<i>clock</i>) <i>signal name</i> = <i>expression</i>  //synchronized signal assigment
+     . = <i>expression</i>  //output assignemt
    </code></pre>
 
-   If you don't specify *type_name* then `logic` is assumed. Example:
+   Only the output assigment must be present exactly once in component body, and its expression must have <i>return type</i> as type. However, if <i>return type</i> is a struct with fields <i>fd1</i>, <i>fd2</i>, <i>fd3</i>, ..., <i>fdn</i> then the output assigment can be replaced by all these assigments:
+   <pre><code>
+   .fd1 = <i>expr1</i>
+   .fd2 = <i>expr2</i>
+   .fd3 = <i>expr3</i>
+   //...
+   .fdn = <i>exprn</i>
+   </code></pre>
 
-       design multiplex_4_1 {
-         in {
-           adr : [2]logic;
-           input : [4];
-         }
-         out {
-           output;    //assumed logic
-         }
-       }
-
-   You can also define a `design`, which is simply an interface for a component that can be implemented in multiple ways. For example a 2-to-1 multiplex, which can be implemented with `and` and `or` logic ports or with tri-state buffers. Designs are defined in the following way:
+   An input port definition must be one of the followings:
 
    <pre><code>
-   design <i>des_name</i> {
-     in {
-       //input ports
-     }
-     out {
-       //output ports
-     }
-     trigger {
-       //triggers
-     }
-   }
+      in <i>port_name</i> : <i>type_name</i>
+      shr <i>port_name</i> : <i>type_name</i>
    </code></pre>
 
-   which can be later associated to one or more effective implementations:
-   
-   <pre><code>
-   comp <i>comp_name</i> {
-     in {...}
-     out {...}
-     trigger {...}
-     impl {...}
-     design <i>design_name</i> {
-       in { 
-          <i>comp_in_port</i> = <i>design_in_ports_expression</i>;
-          ....
-       }
-       out { 
-          <i>design_out_port</i> = <i>comp_out_ports_expression</i>;
-          ....
-       }
-       in { 
-          <i>comp_trigger_port</i> = <i>design_trigger_ports_expression</i>;
-          ....
-       }
-     }
-   }
-   </code></pre>
+   and are separated by commas. If you don't specify *type_name* then `logic` is assumed. Example:
 
-   A single component can implement multiple `design` with same or different mappings. If the mappings are trivial (e.g. each port in comp/design is connected to the only port in design/comp with the same same) then you can remove the body of design implementation block:
-   
-   <pre><code>
-   comp <i>comp_name</i> {
-     in {...}
-     out {...}
-     trigger {...}
-     impl {...}
-     design <i>design_name</i>;
-   }
-   </code></pre>
+       design multiplex_4_1 {in adr : [2]logic, in input : [4], shr clock}
 
-   Designs are also useful for templates/generics.
-   
+   The difference between an `in` port and a `shr` port appears when a component is instantiated with `new`. Otherwise they are equivalent.
+
 6. Signals and parallel coding
 
-   Inside the `impl` subblock you put all the logical ports, connections and components you need in order to implement the behaviour of your component. This block consists in a list of assigments on the following form:
-
-     *signal/out port name* = *signal expression*;
-
-   All these statements represent wire connections so ordering doesn't matter, moreover these statements are continuously evaluated until each signal/output port has a value. For example with the following code
+   Simple signal and output assigments are "executed" at the same time, so ordering doesn't matter here. For example
 
        A = B;
        B = `1;
        C = A;
 
    `A`, `B` and `C` would all be equal to <code>`1</code>.
-
 
    In VHDL/Verilog you must first define all your signals and declare their type before using it. Here signals aren't declared in a separate line, but they are defined when you use it for the first time. However, each signal/ouput port can appear at the left side of `=` symbol **only once**, so the following code would issue an error
 
@@ -204,8 +165,6 @@
        B = `1;
 
    even if `B` was not declared before `A` declaration because ordering doesn't matter, moreover at the end of execution both `A` and `B` would be at state `1` because here execution is parallel.
-
-   Remember that in an `impl` block every output port must be assigned exactly once since all the output ports must have a value.
 
    In a signal expression you can use other signals, input and output ports, constants and operators. You can use parenthesis to control ordering of operations. Actually the following operations are defined:
 
@@ -230,89 +189,58 @@
          B = "1";  //type [1]logic
          C = A ~ B;  //equal to "01", type [2]logic
   
-   - Component allocation `new`. This operator is a bit complex and needs first an example. Suppose we have already defined the following adder component:
+   - Component allocation `new`. This operator is a bit complex and needs first an example. Suppose we have the following full adder:
 
-         comp ADDER {
-           in {
-             a;
-             b;
-             in_rem;
-           }
-           out {
-             sum;
-             out_rem;
-           }
-           trigger {
-             clock;
-           }
-           impl {
-             ...
-           }
+         struct sum {
+           s,
+           c_out,
          }
 
-     and we want to instantiate it in another component. You can do it thanks to the `new` operator in the following way:
+         comp ADDER {in a, in b, in c_in} -> sum_res {
+           d = a xor b; 
+           .s = d xor c_in;
+           .c_out = (a and b) or (d and c_in);
+         }
+
+     and we want to instantiate it inside another component. You can do it thanks to the `new` operator in the following way:
 
          adr = new ADDER {
              a = C;
              b = D;
-             in_rem = `0;
-             clock = clock;
+             c_in = `0;
            };
 
-     where `C`, `D`, `E` are other signals with compatible types. Now `adr` is not a `logic` or array signals, so you can put it directly in other signal expression. To take its output you must use the `.` operator:
+     where `C`, `D`, `E` are other signals with compatible types. Now `adr` has type `sum` so you can access its fields with the `.` operator:
 
-         sig = adr.sum;    //reads the sum port of ADDER
-         sig_rep = not adr.out_rem;  //uses the out_rem port of ADDER
+         sig = adr.s;    //reads the s port of ADDER
+         sig_rep = not adr.c_out;  //uses the c_out port of ADDER
 
-     if you need only one output value then wyou can apply the `.` operator directly on the valued returned by `new`:
+     you can apply the `.` operator directly on the valued returned by `new`:
 
          sig = new ADDER {
              a = C;
              b = D;
-             in_rem = `0;
-             clock = clock;
-           }.sum;
+             c_in = `0;
+           }.s;
 
      The `new` operator also allows you to instantiate an array of components at the same time. Consider for example the following component:
   
-         comp MPX {
-           in {
-             adr;
-             data : [2];
-           }
-           out {
-             bus;
-           }
-           trigger {
-             clock;
-           }
-           impl { ... }
+         comp MPX {shr adr, in data : [2]} -> logic {
+           . = (adr and data[1]) or (adr.not and data[0]);
          }
   
      We can allocate three `MPX` components in this way:
   
-         multiplex = new [3]MPX {adr = A; data = D; clock = clock;};
+         multiplex = new [3]MPX {adr = A; data = D;};
   
      which is equivalent to the following code
   
-         multiplex = [ new MPX {adr = A[0]; data = D[0]; clock = clock;},
-                        new MPX {adr = A[1]; data = D[1]; clock = clock;},
-                        new MPX {adr = A[2]; data = D[2]; clock = clock;}];
+         multiplex = [ new MPX {adr = A; data = D[2]; },
+                        new MPX {adr = A; data = D[1]; },
+                        new MPX {adr = A; data = D[0]; }];
   
-     Notice that when allocating `N` copies of `MPX` with a single `new` instruction the input port `adr` type becomes `[N]logic` and `data` type becomes `[N][2]logic` (a `[N]` is concatenated at each input type) but the trigger port `clock` has its type unchanged since the signal is shared between all the instances of `MPX`. Indeed the main difference between an `in` port and a `trigger` port is that `trigger` ports would be shared among all their instances after an array allocation, whereas `in` (and `out`) ports remain independent. 
+     Notice that when allocating `N` copies of `MPX` with a single `new` instruction the `in` port `data` type becomes `[N][2]logic` (an `[N]` is concatenated at each in type) but the `shr` port `adr` has its type unchanged since the signal is shared between all the instances of `MPX`. Indeed the main difference between an `in` port and a `shr` port is that `shr` ports would be shared among all their instances after an array allocation, whereas `in` ports remain independent. `shr` ports are well-suited for clock signals. 
 
-     Now `multiplex` is an "array of components" each of them can be accessed by specifying its index:
-  
-         dat = multiplex[1].bus;
-  
-     Moreover, you can threat the entire signal `multiplex` (or even a range of it) as a single component with output ports type modified as the input ones. For example the following expression
-  
-         multiplex.bus
-  
-     is equivalent to
-  
-         [multiplex[2].bus, multiplex[1].bus, multiplex[0].bus]
-     
 7. `sync` signals and sequential coding
 
    Parallel coding defined in the previous part has a very restrictive requirement: no cyclic assigments. For example this code wouldn't compile
