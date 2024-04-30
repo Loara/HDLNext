@@ -118,20 +118,13 @@
 
    <pre><code>
      <i>signal name</i> = <i>expression</i>  //simple signal assigment
-     sync(<i>clock</i>) <i>signal name</i> = <i>expression</i>  //synchronized signal assigment
+     sync(<i>clock</i>) <i>signal name</i> : <i>signal type</i> = <i>expression</i>  //synchronized signal assigment
      . = <i>expression</i>  //output assignemt
    </code></pre>
 
-   Only the output assigment must be present exactly once in component body, and its expression must have <i>return type</i> as type. However, if <i>return type</i> is a struct with fields <i>fd1</i>, <i>fd2</i>, <i>fd3</i>, ..., <i>fdn</i> then the output assigment can be replaced by all these assigments:
-   <pre><code>
-   .fd1 = <i>expr1</i>
-   .fd2 = <i>expr2</i>
-   .fd3 = <i>expr3</i>
-   //...
-   .fdn = <i>exprn</i>
-   </code></pre>
+   Only the output assigment must be present in the component body and cannot be repeated multiple times. Moreover, its expression must have <i>return type</i> as type. 
 
-   An input port definition must be one of the followings:
+    An input port definition must be one of the followings:
 
    <pre><code>
       in <i>port_name</i> : <i>type_name</i>
@@ -168,28 +161,21 @@
 
    In a signal expression you can use other signals, input and output ports, constants and operators. You can use parenthesis to control ordering of operations. Actually the following operations are defined:
 
-   - Logical `not`, `and`, `or`, `nand`, `nor`, `xor`, `xnor`:
+   - Logical `.not`, `$and`, `$or`, `$nand`, `$nor`, `$xor`, `$xnor` as follows:
 
          ...
-         A = (not B) and C and (D xor `1);
+         A = $and(B.not, C, $xor(D, `1));
          ...
 
      these operators works both on single `logic` types, arrays of `logic`, array of array of `logic` and so on, by applying the chosen operation on each element. However, both the arguments must have the same type because this language is strongly typed.
    - Range operator `[min:max]` as described before;
-   - Array composition `[...]`:
-
-         A = `0;  //type logic
-         B = `1;  //ditto
-         C = [A, B]; //equal to "01", type [2]logic
-         D = [A];  //type [1]logic, which is different from logic
-     
-   - Array concatenation `~`:
+   - Array concatenation `[...|...]`:
 
          A = "0";  //type [1]logic
          B = "1";  //type [1]logic
-         C = A ~ B;  //equal to "01", type [2]logic
+         C = [A | B];  //equal to "01", type [2]logic
   
-   - Component allocation `new`. This operator is a bit complex and needs first an example. Suppose we have the following full adder:
+   - Struct/component allocation `new`. This operator is a bit complex and needs first an example. Suppose we have the following full adder:
 
          struct sum {
            s,
@@ -240,6 +226,19 @@
                         new MPX {adr = A; data = D[0]; }];
   
      Notice that when allocating `N` copies of `MPX` with a single `new` instruction the `in` port `data` type becomes `[N][2]logic` (an `[N]` is concatenated at each in type) but the `shr` port `adr` has its type unchanged since the signal is shared between all the instances of `MPX`. Indeed the main difference between an `in` port and a `shr` port is that `shr` ports would be shared among all their instances after an array allocation, whereas `in` ports remain independent. `shr` ports are well-suited for clock signals. 
+
+     With `new` you can also allocate structs as they're components:
+
+     ```
+     struct Adr_2 {
+        adr : [2],
+     }
+     ...
+     ad = new Adr_2 {
+        adr = ...;
+     }
+     x = ad.adr;
+     ```
 
 7. `sync` signals and sequential coding
 
