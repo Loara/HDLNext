@@ -7,9 +7,12 @@ Currently all the following constants have type `logic`:
 + <code>`0</code>: logic state 0;
 + <code>`1</code>: logic state 1;
 + <code>`X</code>: unknown value, runtime error;
-     
-    port1 = `1;    //assigns logic state 1 to port1
-    port2 = `X;     //assign runtime error to port2 which propagates to other components
+
+Example:
+<pre><code>
+port1 = `1;    //assigns logic state 1 to port1
+port2 = `X;     //assign runtime error to port2 which propagates to other components
+</code></pre>
 
 In order to combine multiple `logic` literals into a single array literal of type `[N]logic` you can enclose the ordered logic literals with `"` in the following way:
 
