@@ -3,7 +3,7 @@
 A component in this language can be define in the following way: 
 
 <pre><code>
-   comp <i>name</i> { <i>input ports</i> } -> <i>return type</i> {
+   comp <i>name</i> { <i>input ports</i> }  <i>return type</i> {
      <i>assigments</i>
    }
 </code></pre>
@@ -29,7 +29,7 @@ An input port definition must be one of the followings:
 
 and are separated by commas. If you don't specify *type_name* then `logic` is assumed. Example:
 
-    comp multiplex_4_1 {in adr : [2]logic, in input : [4], shr clock} -> logic {
+    comp multiplex_4_1 {in adr : [2]logic, in input : [4], shr clock}  logic {
 
 The difference between an `in` port and a `shr` port appears when a component is instantiated with `new` inside an expression. Otherwise they are equivalent.
 
