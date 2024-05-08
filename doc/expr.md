@@ -53,11 +53,6 @@ You can access a field with the `.` operator:
 
     A.fld;  //access field fld of A
 
-Not only struct, but also every entity of type `logic` (or array of `logic`, array of arrays of `logic` and so on) have accessible fields. At the moment the only accessible field for them is `not` that returns its logic negation:
-
-    a = "1011X";
-    b = a.not;  //b has type [5]logic and it is equal to "0100X"
-
 ### logical ports
 You can use logical ports `$and`, `$or`, `$nand`, `$nor`, `$xor`, `$xnor` as follows:
 
@@ -71,11 +66,11 @@ these operators works both on single `logic` types, arrays of `logic`, array of 
     B = "1";  //type [1]logic
     C = $cat(A , B);  //equal to "01", type [2]logic
   
-### Struct/component allocation `new`
+### Component allocation `new`
 
-To instantiate a struct in an expression you can use the `new` operation. For example assume we have defined the following struct:
+To instantiate a prodtype/sumtype/component in an expression you can use the `new` operation. For example assume we have defined the following prodtype:
 
-    struct sum {
+    prodtype sum {
         s,
         c_out,
     }
@@ -87,6 +82,18 @@ then you can allocate it inside a component in this way:
         c_out = $or(B, C.not),  //connect $or(B, C.not) to c_out
     };
     b = a.s;                    //access field s in a which has type sum
+
+For sumtypes you need to specify exactly one of its item in the `new` block. If the chosen item has type `void` then you can avoid using the `{..}` block:
+
+    sumtype B {
+        itemA : [2],
+        itemB,          //void
+    }
+    ..
+    C = new B {
+        itemA = "10"
+    };
+    D = new B itemB;
 
 The `new` operator can also instantiate components into other components, in that case you need to connect input ports during allocation. For example consider the following full adder component definition: 
 
@@ -119,7 +126,7 @@ you can apply the `.` operator directly on the valued returned by `new`:
         c_in = `0;
     }.s;
 
-The `new` operator also allows you to instantiate an array of struct/components at the same time. Consider for example the following component:
+The `new` operator also allows you to instantiate an array of prodtypes/sumtypes/components at the same time. Consider for example the following component:
   
     comp MPX {shr adr, in data : [2]} -> logic {
         . = (adr and data[1]) or (adr.not and data[0]);
