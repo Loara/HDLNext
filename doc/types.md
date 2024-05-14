@@ -5,8 +5,8 @@ This language is strongly types, that is every port and every signal must have a
 + Root types
     - `logic`
     - `void`
-    - prodtype
-    - sumtype
+    - structs
+    - unions
 + Arrays
 
 Each root type also defines zero or more *fields* which are accessible to each port/signal with such type by using the `.` operator. For example if type `T` has the field `fld` of type `S` then for each signal `t` of type `T` you can access such field with the expression `t.fld` which has type `S`.
@@ -27,11 +27,11 @@ The `logic` type automatically defines the field `not` which returns the logical
 
 This type is very strange because it has only one possible value, which is `""`. Since it doen't hold or bring any information signals and ports of such type are never synthetized and can be safetly ignored when the component is instantiated. 
 
-### prodtype
+### struct
 
-Prodtypes are like structs in C, in particular they first have to be declared before use:
+Structs are like structs in C, in particular they first have to be declared before use:
 
-    prodtype A {
+    struct A {
         porta : [2],
         portb : [3][4],
         portc,    //type logic
@@ -40,19 +40,33 @@ Prodtypes are like structs in C, in particular they first have to be declared be
     portc : A   //now portc has type A
     portc.porta   //this has type [2]
 
-Fields declared as `void` are silently discarded and you can avoid initializing them when you inizialize the prodtype. Moreover, a prodtype without non-`void` fields are silently aliased to `void`.
+You can use the `new` operator to instantiate a struct:
 
-### sumtype
+    a = new A {
+        porta = [`0, `0];
+        portb = [ "0000", "1101", "1110"];
+        portc = `1;
+    };
 
-Sumtypes are like enums in Rust, with the only difference that each item has automatically a type. If you don't specify a type for a type it is automatically inferred as `void`.
+Fields declared as `void` are silently discarded and you can avoid initializing them when you inizialize the struct. Moreover, a struct without non-`void` fields are silently aliased to `void`.
 
-    sumtype B {
+### union
+
+Unions are like enums in Rust, with the only difference that each item has automatically a type. If you don't specify a type for a type it is automatically inferred as `void`.
+
+    union B {
         itemA : logic,  //logic type
         itemB,          //void type
         itemC : [3],    //[3]logic type, see array section
     }
 
-Notice that items of a sumtype aren't fields so you can't access them with the dot `.` operator later in expressions. However, you can use sumtypes in `switch` expressions.
+As for structs, also unions can be instantiated with the `new` operator in the following way:
+
+    b1 = new B.itemA(`1);
+    b2 = new B.itemB();
+    b3 = new B.itemC("001");
+
+Notice that items of a union aren't fields so you can't access them with the dot `.` operator later in expressions. However, you can use unions in lookup tables.
 
 ### array
 
@@ -79,7 +93,7 @@ You can access each element of an array signal/port with square braces as in C l
     // port[4][3]    Error: array port out of bounds, length=2 index=4
     // port[0][9]    Error: array port[0] out of bounds, length=7 index=9
 
-Arrays don't introduce any new field, however they inherit all the fields belonging to their base type. Let consider a signal `a` with type `[2]A` where `A` is a prodtype with the field `portc`. Then you can see `a` both as an array of prodtypes, so `a[0]` is legal with type `A` and `a[0].portc` has type `logic`, and as a new prodtype similar to `A` buth with fields doubled so `a.portc` is still valid but with type `[2]logic` now. In general for every index `i` and every field `fld` of a prodtype `ST` then the following equivalence holds fhr every signal `sig` of type `[N]ST`:
+Arrays don't introduce any new field, however they inherit all the fields belonging to their base type. Let consider a signal `a` with type `[2]A` where `A` is a struct with the field `portc`. Then you can see `a` both as an array of structs, so `a[0]` is legal with type `A` and `a[0].portc` has type `logic`, and as a new struct similar to `A` buth with fields doubled so `a.portc` is still valid but with type `[2]logic` now. In general for every index `i` and every field `fld` of a struct `ST` then the following equivalence holds fhr every signal `sig` of type `[N]ST`:
 
     sig[i].fld == sig.fld[i]
 
