@@ -31,7 +31,7 @@ These types are defined internally by the compiler and can be used to define mor
 ### Component types
 Components itself have types which nearly resemble functional types in languages like Haskell. Component types can also be used as input/output types of other components, and in this way you can define components with multiple input parameters. Component types are never copyable.
 
-There are two kinds of component types: _unnamed_ and _named_. An unnamed component type has the following signature:
+ are two kinds of component types: _unnamed_ and _named_. An unnamed component type has the following signature:
 
     in_type -> out_type
 
@@ -54,7 +54,56 @@ Remember that if you set a component type to an input then that imput parameter 
 There are two fundamental components already defined by the compiler: `0` and `1`. Both have type `void -> logic` and always return respectively the low logical value and the high logical value.
 
 ### Custom types
-These types are defined by users with the `record`, `variant` and `enum` constructs. These constructs also instantiate suitable components that allow you to instantiate them and retrieve informations. 
+A custom type is a type that is created by users by using already existent types. When you define a new custom type the compiler also generates different designers in order to make them usable in your code.
+
+#### Basic type
+You can define a new type _T_ which is logically equivalent to an already existent type _N_ with the `type` keyword:
+
+    type T = N;
+
+That also generates the following designers:
+
+    T : comp N -> T;
+    T::into : comp T -> N;
+
+#### Record type
+A record type works like structs in C and can be defined with the `record` keyword:
+
+    record T {
+        #par1 N,
+        #par2 [2]logic,
+        #par3,  //implicit logic
+    };
+
+and defines the following designers:
+
+    T : comp (#par1 N) -> (#par2 [2]logic) -> (#par3 logic) -> T;
+    T::par1 : T -> N;
+    T::par2 : T -> [2]logic;
+    T::par3 : T -> logic;
+
+Moreover, you can use the dot operator `.` on an object `t` of type `T`
+
+    t.par2
+
+which is equivalent to
+
+    \T::par2 t
+
+#### Variant type
+A variant type works like structs in C and can be defined with the `variant` keyword:
+
+    record T {
+        #var1 N,
+        #var2 logic,
+        #var3,  //implicit void
+    };
+
+and defines the following designers:
+
+    T::var1 : N -> T;
+    T::var2 : logic -> T;
+    T::var3 : void -> T;    //equivalent to T
 
 ### Array
 You can define array types with the following syntax:
