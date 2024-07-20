@@ -6,17 +6,15 @@ There isn't a specific reason. In fact, if you're working for a company you don'
 
 However, VHDL and Verylog have been developed several years ago, so their syntax in 2024 are quite outdated. But instead of define a new HDL language that will never supersede VHDL/Verilog it is more reasonable to introduce a "VHDL/Verilog language generator" that allows you to design hardware with a more modern and readable syntax and then use it to generate VHDL/Verilog code that you can feed to your favorite toolchain.
 
-**EDIT:** I've taken a look at Lucid, which have a very similar syntax to this language and tries to achieve the same goal but it has already been adopted by some FPGA manifacturers. However, some things are handled differently, for example synchronized signals.
+## Objects
 
-## Components
+The primary elements in this languages are called *objects*. Each object has a unique *type* and must be *instantiated* in order to be used. In order to instantiate a component you need a *designer* that informs the compiler on how to build the selected component. 
 
-A `component` represents a digital component. Every component has a single input and a single output. Two components can be _connected_ by linking the output of one component to the input of the other one. The output of one component can be connected to the impunt of many different other components, but two (or more) outputs can not be connected to the same input. In other words, the input of every component is connected to exactly one output of another component.
-
-Moreover, a component cannot have its output connected to its input, and the directed graph representing connections between components must be a directed acyclic graph.
+A very important class of objects are the so-called *components*. Each component has an *input* and an *output*, both of them have a type. Every component can be evaluated at a provided object with the same type of component input in order to provide a new object with the same type of component output one.
 
 ## Types
 
-Every input and output of a component must have a `type`. An input can be connected to an output only if both have the same type. There are three different classes of types:
+A type can be *copyable* or not. Every instanced object with a copyable type can be used multiple times, instead an object with a non copyable type can be used only once, if you need to use it again you have to instantiate a new object. There are three different classes of types:
 
 + Builtin types;
 + Component types;
@@ -24,14 +22,14 @@ Every input and output of a component must have a `type`. An input can be connec
 + Arrays.
 
 ### Builtin types
-These types are defined internally by the compiler and can be used to define more complex types. Currently, the following builtin types are defined:
+These types are defined internally by the compiler and can be used to define more complex types. All these types are copyable. Currently, the following builtin types are defined:
 
 + `logic`: a digital logic element that can hold two possible states, zero (`0`) and one (`1`). A `logic` connection is synthesized as a single digital pin.
 + `void`: an element that has only one possible state (the null state). Since its state is always defined and can not be changed the `void` type doesn't bring any information and can be used to disable entries. A component with `void` input doesn't need to be connected to any output and is synthetized as a component without input pins. Instead, a component with `void` doesn't provide any useful information to the outside world and so will never be synthetized to real hardware.
 + `!` (never type): an element that doesn't have any valid state and so can never be initialized. The only possible way to use the `!` type is inside a variant component in order to disable some of its entries.
 
 ### Component types
-Components itself have types which nearly resemble functional types in languages like Haskell. Component types can also be used as input/output types of other components, and in this way you can define components with multiple input parameters.
+Components itself have types which nearly resemble functional types in languages like Haskell. Component types can also be used as input/output types of other components, and in this way you can define components with multiple input parameters. Component types are never copyable.
 
 There are two kinds of component types: _unnamed_ and _named_. An unnamed component type has the following signature:
 
