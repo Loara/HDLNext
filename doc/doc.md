@@ -6,11 +6,30 @@ There isn't a specific reason. In fact, if you're working for a company you don'
 
 However, VHDL and Verylog have been developed several years ago, so their syntax in 2024 are quite outdated. But instead of define a new HDL language that will never supersede VHDL/Verilog it is more reasonable to introduce a "VHDL/Verilog language generator" that allows you to design hardware with a more modern and readable syntax and then use it to generate VHDL/Verilog code that you can feed to your favorite toolchain.
 
-## Objects
+## Components
 
-The primary elements in this languages are called *objects*. Each object has a unique *type* and must be *instantiated* in order to be used. In order to instantiate a component you need a *designer* that informs the compiler on how to build the selected component. 
+The primary elements in this languages are called *components*. Every component has always an *output port* and optionally an *input port*, both of them must have a *type*. Every component must first be *instantiated* with a *designer* in order to be used.
 
-A very important class of objects are the so-called *components*. Each component has an *input* and an *output*, both of them have a type. Every component can be evaluated at a provided object with the same type of component input in order to provide a new object with the same type of component output one.
+A designer for a component with only an output port can be defined in the following way:
+
+<pre><code>
+    design <i>design_name</i> = <i>expression</i>;
+</code></pre>
+
+where the output port type is inferred from *expression*; If you want to explicitly declare the output port type then you can declare the design in the following way:
+
+<pre><code>
+    design <i>design_name</i> <i>output_type</i> = <i>expression</i>;
+</code></pre>
+
+For components with an input port the design assumes one of the following forms:
+
+<pre><code>
+    design <i>design_name</i> [#<i>param_name</i> <i>input_type</i>] = <i>expression</i>;
+    design <i>design_name</i> \[#<i>param\_name</i> <i>input\_type</i>\] <i>output\_type</i> = <i>expression</i>;
+</code></pre>
+
+with _param\_name_ the input port name that can be used inside _expression_.
 
 ## Types
 
