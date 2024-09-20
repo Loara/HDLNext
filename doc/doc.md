@@ -8,37 +8,38 @@ However, VHDL and Verylog have been developed several years ago, so their syntax
 
 ## Components
 
-The primary elements in this languages are called *components*. Every component has always an *output port* and optionally an *input port*, both of them must have a *type*. Every component must first be *instantiated* with a *designer* in order to be used.
+The primary elements in this languages are called *components*. Every component has always an *output port* and an *input port*, both of them must have a *type*. Components can be *composed* to form more complex components.
 
-A designer for a component with only an output port can be defined in the following way:
+Every component must first be *instantiated* from a *design* in order to be used.
 
-<pre><code>
-    design <i>design_name</i> = <i>expression</i>;
-</code></pre>
+A design for a component can be defined in the following way:
 
-where the output port type is inferred from *expression*; If you want to explicitly declare the output port type then you can declare the design in the following way:
+<pre><code>design <i>design_name</i> = <i>expression</i>;</code></pre>
 
-<pre><code>
-    design <i>design_name</i> <i>output_type</i> = <i>expression</i>;
-</code></pre>
+where *expression* describes the internal structure of your component.
 
-For components with an input port the design assumes one of the following forms:
+## Component instantiation and linking
 
-<pre><code>
-    design <i>design_name</i> [#<i>param_name</i> <i>input_type</i>] = <i>expression</i>;
-    design <i>design_name</i> \[#<i>param\_name</i> <i>input\_type</i>\] <i>output\_type</i> = <i>expression</i>;
-</code></pre>
+Inside an expression you can instantiate other components by using the symbol `\` followed by the design name of the component. For example `\adder` instantiate a new component by using the design named `adder`.
 
-with _param\_name_ the input port name that can be used inside _expression_.
+Two or more components can be *linked* (or *composed*) by using one or more spaces between them. For example let `inc` be the design of a component that increases its input (seen as an unsigned integer) by 1 and `dup` instead duplicates its input, then the following component design
+
+    design comp = \dup \inc;
+
+would compute 2x+1 from input x. Instead,
+
+    design comp2 = \inc \dup;
+
+would compute 2(x+1).
 
 ## Types
 
-A type can be *copyable* or not. Every instanced object with a copyable type can be used multiple times, instead an object with a non copyable type can be used only once, if you need to use it again you have to instantiate a new object. There are three different classes of types:
+There are three different classes of types:
 
 + Builtin types;
-+ Component types;
-+ Custom types;
-+ Arrays.
++ Structures and arrays;
++ Unions;
++ Custom types.
 
 ### Builtin types
 These types are defined internally by the compiler and can be used to define more complex types. All these types are copyable. Currently, the following builtin types are defined:
@@ -47,114 +48,67 @@ These types are defined internally by the compiler and can be used to define mor
 + `void`: an element that has only one possible state (the null state). Since its state is always defined and can not be changed the `void` type doesn't bring any information and can be used to disable entries. A component with `void` input doesn't need to be connected to any output and is synthetized as a component without input pins. Instead, a component with `void` doesn't provide any useful information to the outside world and so will never be synthetized to real hardware.
 + `!` (never type): an element that doesn't have any valid state and so can never be initialized. The only possible way to use the `!` type is inside a variant component in order to disable some of its entries.
 
-### Component types
-Components itself have types which nearly resemble functional types in languages like Haskell. Component types can also be used as input/output types of other components, and in this way you can define components with multiple input parameters. Component types are never copyable.
+*Remark*: A component with input port of type `void` is called *element*. The type of an element is always the type of its output port since the input port type must be `void`. Examples of elements are `b0` and `b1` which have both type `logic` and represent zero and one logical statuses respectively. 
 
- are two kinds of component types: _unnamed_ and _named_. An unnamed component type has the following signature:
+### Structures and array
 
-    in_type -> out_type
+A structure type can be declared in the following way:
 
-Examples:
+<pre><code>struct {
+  <i>field1</i> : <i>type1</i>,
+  <i>field2</i> : <i>type2</i>,
+   ...
+  <i>fieldn</i> : <i>typen</i>,
+}</code></pre>
 
-    logic -> logic                      //both input and output are logic
-    void -> logic                       //input is void and output is logic, functionally equivalent to logic
-    logic -> (logic -> [2]logic)        //input is logic, output is another component with input of type logic and output an array of logic with length 2
-    (logic -> logic) -> logic -> logic  //input is a component with both input and output logic, output is a component with both input and output logic
-                                        //equivalent to (logic -> logic) -> (logic -> logic)
+just like structures in C. You can omit the `: typei` part for one or more fields, in that case `typei` is assumed to be `logic`. Moreover, each field *fieldi* is also a component design with input port type the struct itself and output port type the respective *typei*.
 
-A named component type has instead the following signature
+An *array* is a particular structure where each *fieldi* is equal to *i* and are declared in the following way:
 
-    #parameter in_type -> out_type
-
-where `parameter` is an alfanumeric string representing the imput parameter. This is useful when you want to allow the user to discern each component parameter during instantiation. Every named component can always be implicitly converted to its unnamed version.
-
-Remember that if you set a component type to an input then that imput parameter _can not be copied_: you can use it only once inside your component.
-
-There are two fundamental components already defined by the compiler: `0` and `1`. Both have type `void -> logic` and always return respectively the low logical value and the high logical value.
-
-### Custom types
-A custom type is a type that is created by users by using already existent types. When you define a new custom type the compiler also generates different designers in order to make them usable in your code.
-
-#### Basic type
-You can define a new type _T_ which is logically equivalent to an already existent type _N_ with the `type` keyword:
-
-    type T = N;
-
-That also generates the following designers:
-
-    T : comp N -> T;
-    T::into : comp T -> N;
-
-#### Record type
-A record type works like structs in C and can be defined with the `record` keyword:
-
-    record T {
-        #par1 N,
-        #par2 [2]logic,
-        #par3,  //implicit logic
-    };
-
-and defines the following designers:
-
-    T : comp (#par1 N) -> (#par2 [2]logic) -> (#par3 logic) -> T;
-    T::par1 : T -> N;
-    T::par2 : T -> [2]logic;
-    T::par3 : T -> logic;
-
-Moreover, you can use the dot operator `.` on an object `t` of type `T`
-
-    t.par2
+<pre><code>[<i>n</i>]<i>type</i></code></pre>
 
 which is equivalent to
 
-    \T::par2 t
+<pre><code>struct {
+  0 : <i>type</i>,
+  1 : <i>type</i>,
+  2 : <i>type</i>,
+   ...
+  <i>n-1</i> : <i>type</i>,
+}</code></pre>
 
-#### Variant type
-A variant type works like structs in C and can be defined with the `variant` keyword:
+Two structure types are the same type if and only if have the same fields with the same name and types, ordering doesn't matter. To distinguish equal structures you should wrap them in *custom types*.
 
-    record T {
-        #var1 N,
-        #var2 logic,
-        #var3,  //implicit void
-    };
+### Unions
 
-and defines the following designers:
+An union type can be declared in the following way:
 
-    T::var1 : N -> T;
-    T::var2 : logic -> T;
-    T::var3 : void -> T;    //equivalent to T
+<pre><code>union {
+  <i>field1</i> : <i>type1</i>,
+  <i>field2</i> : <i>type2</i>,
+   ...
+  <i>fieldn</i> : <i>typen</i>,
+}</code></pre>
 
-### Array
-You can define array types with the following syntax:
+You can omit the `: typei` part for one or more fields, in that case `typei` is assumed to be `void`. Moreover, each field *fieldi* is also a component design with input port type *typei* and output port type the union itself.
 
-    [length] type
+Two union types are the same type if and only if have the same fields with the same name and types, ordering doesn't matter. To distinguish equal unions you should wrap them in *custom types*.
 
-where `type` can be any valid type (also another array) and `length` is a nonnegative integer. If you omit `type` then `logic` is inferred.
+### Custom types
+A custom type is a type that is created by users by using already existent types. To define a new type *newtype* from an already existent type *oldtype* you can use the following declaration:
 
-Examples:
+<pre><code>type <i>newtype</i> = <i>oldtype</i>;</code></pre>
 
-    [8]logic        //declares 8 logic ports and threat them as a single port with eight entries numbered from 0 to 
-    [8]             //same
-    [2][7]          // an array with length 2 of arrays of logics with length 7
-    [3](logic -> T) //an array with length 3 of components with logic input and custom type T output
+Notice that *newtype* is different from *oldtype*, and two custom types are the same type if and only if they have the same name. Moreover, *oldtype* is implicitly convertible to *newtype* (but not the converse) and *newtype* can also be used as a component design with input port of type *oldtype* and output port type *newtype*.
 
-You can access each element of an array signal/port with square braces as in C language. However, indices here are reversed in type definition in order to avoid C-multidimensional array reverse indices issue:
+## Inline components
+May happen that you component can't be representable as only composition of already existent components, and you need to use your input in multiple places of your expression. In such cases you can declare *inline components* in the following way:
 
-    port : [2][7] logic;
-    port[0][1]    //ok
-    port[1][5]    //ok
-    // port[4][3]    Error: array port out of bounds, length=2 index=4
-    // port[0][9]    Error: array port[0] out of bounds, length=7 index=9
+<pre><code>|<i>param</i> : <i>ptype</i>| {<i>expression</i>} </code></pre>
 
+where *expression* is an expression describing an element (a component with `void` as input type port) in which you can use *param* as an element design of type *ptype*. The resulting component would then have *ptype* as input port type and the *expression* type as output port type.
 
-## Expressions
+For example let `adder` be a component with input port type `struct {add1 : num, add2 : num}` which returns add1 + add2, then we can implement the duplicating component `dup` in the following way:
 
-A (named) component is declared in the following way:
-
-    name : comp (#parameter : in_type) = expression;
-
-where `name` is the component name, `parameter` is the input parameter name, `in_type` the input type and `expression` is an expression that describe the component behaviour. You don't need to specify the output type since it can always be inferred from `expression`, however you can explicitly specify it in order to avoid errors in this way:
-
-    name : comp(#parameter : in_type) [out_type] = expression;
-
+    design dup = |x : num| { struct {add1 = \x, add2 = \x} \adder };
 
