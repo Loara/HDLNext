@@ -138,6 +138,18 @@ For example, a component `inc3` which takes a `num` as input and returns its val
 
 where the value passed to `inc3` as input is directly assigned to `add1` field and then passed to `adder`. 
 
+You can instantiate array components with the following syntax:
+
+<pre><code>array{
+  <i>exp0</i>;
+  <i>exp1</i>;
+  <i>exp2</i>;
+    ...
+  <i>expn</i>;
+}</code></pre>
+
+and they work like simple struct components.
+
 ## Inline components
 May happen that you component can't be representable as only composition of already existent components, and you need to use your input in multiple places of your expression. In such cases you can declare *inline components* in the following way:
 
