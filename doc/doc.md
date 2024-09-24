@@ -14,9 +14,11 @@ Every component must first be *instantiated* from a *design* in order to be used
 
 A design for a component can be defined in the following way:
 
-<pre><code>design <i>design_name</i> = <i>expression</i>;</code></pre>
+<pre><code>design <i>design_name</i>[<i>input_type</i>]  = <i>expression</i>;</code></pre>
 
-where *expression* describes the internal structure of your component.
+where *input_type* is the type of the input port and *expression* describes the internal structure of your component. You don't need to specify also the output port type because it will be inferred by *input_type* and *expression*.
+
+If you omit <code>[<i>input_type</i>]</code> then `void` is inferred.
 
 ## Component instantiation and linking
 
@@ -24,11 +26,11 @@ Inside an expression you can instantiate other components by using the symbol `\
 
 Two or more components can be *linked* (or *composed*) by using one or more spaces between them. For example let `inc` be the design of a component that increases its input (seen as an unsigned integer) by 1 and `dup` instead duplicates its input, then the following component design
 
-    design comp = \dup \inc;
+    design comp[num] = \dup \inc;
 
 would compute 2x+1 from input x. Instead,
 
-    design comp2 = \inc \dup;
+    design comp2[num] = \inc \dup;
 
 would compute 2(x+1).
 
@@ -101,14 +103,49 @@ A custom type is a type that is created by users by using already existent types
 
 Notice that *newtype* is different from *oldtype*, and two custom types are the same type if and only if they have the same name. Moreover, *oldtype* is implicitly convertible to *newtype* (but not the converse) and *newtype* can also be used as a component design with input port of type *oldtype* and output port type *newtype*.
 
+## Struct components
+Struct components are special components that have structs as output port type. Struct componenrs can be *simple* or *linked*. A simple struct component can be instantiated in the following way:
+
+<pre><code>struct{
+  <i>field1</i> = <i>exp1</i>;
+  <i>field2</i> = <i>exp2</i>;
+  <i>field3</i> = <i>exp3</i>;
+    ...
+  <i>fieldn</i> = <i>expn</i>;
+}</code></pre>
+
+where each *expi* is an expression of an element with the same type of field *fieldi*. This expression instantiates an element with (output) type the struct with fields *field1*, *field2*, ..., *fieldn*.
+
+For example let `adder` be a component with input port type `struct {add1 : num, add2 : num}` which returns add1 + add2, and let `num3`, `num4` be two elements with type `num` returning 3 and 4 respectively. Then an element `num7` returning 7 can be defined in the following way:
+
+    design num7 =  struct {add1 = \num3; add2 = \num4;} \adder;
+
+Instead a linked struct component is declared in the following way:
+
+<pre><code>struct(<i>fieldz</i>){
+  <i>field1</i> = <i>exp1</i>;
+  <i>field2</i> = <i>exp2</i>;
+  <i>field3</i> = <i>exp3</i>;
+    ...
+  <i>fieldn</i> = <i>expn</i>;
+}</code></pre>
+
+where *fieldz* is another field of the struct different from others *fieldi* fields which value is not set from an assigned expression. Instead, is binded to the instantiated component input port.
+
+For example, a component `inc3` which takes a `num` as input and returns its value increased by 3 can be defined in the following way:
+
+    design inc3[num] = struct(add1) {add2 = \num3;} \adder;
+
+where the value passed to `inc3` as input is directly assigned to `add1` field and then passed to `adder`. 
+
 ## Inline components
 May happen that you component can't be representable as only composition of already existent components, and you need to use your input in multiple places of your expression. In such cases you can declare *inline components* in the following way:
 
-<pre><code>|<i>param</i> : <i>ptype</i>| {<i>expression</i>} </code></pre>
+<pre><code>|<i>param</i>| {<i>expression</i>} </code></pre>
 
-where *expression* is an expression describing an element (a component with `void` as input type port) in which you can use *param* as an element design of type *ptype*. The resulting component would then have *ptype* as input port type and the *expression* type as output port type.
+where *expression* is an expression describing an element (a component with `void` as input type port) in which you can use *param* as an element design. The resulting component would then have *ptype* as input port type and the *expression* type as output port type.
 
-For example let `adder` be a component with input port type `struct {add1 : num, add2 : num}` which returns add1 + add2, then we can implement the duplicating component `dup` in the following way:
+For example, then we can implement the duplicating component `dup` by using `adder` in the following way:
 
-    design dup = |x : num| { struct {add1 = \x, add2 = \x} \adder };
+    design dup[num] = |x| { struct {add1 = \x; add2 = \x;} \adder };
 
