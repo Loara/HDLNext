@@ -8,55 +8,61 @@ However, VHDL and Verylog have been developed several years ago, so their syntax
 
 ## Components
 
-The primary elements in this languages are called *components*. Every component has always an *output port* and an *input port*, both of them must have a *type*. Components can be *composed* to form more complex components.
+The primary elements in this languages are called *components*. Every component has always an *output port* and an *input port*, both of them must have a *type*. Components can be *linked* to form more complex components. More preciselt, a component `A` can be linked to component `B` if and only if the output port type of `A` is equal to the input port type of `B`. 
 
 Every component must first be *instantiated* from a *design* in order to be used.
 
 A design for a component can be defined in the following way:
 
-<pre><code>design <i>design_name</i>[<i>input_type</i>]  = <i>expression</i>;</code></pre>
+<pre><code>design <i>design_name</i>[<i>input_type</i>]  = <i>component chain</i>;</code></pre>
 
-where *input_type* is the type of the input port and *expression* describes the internal structure of your component. You don't need to specify also the output port type because it will be inferred by *input_type* and *expression*.
+where *input_type* is the type of the input port and *component chain* is a sequence of linked components that describe the behaviour of your custom component. You don't need to specify also the output port type because it will be inferred by *input_type* and *component chain*.
 
 If you omit <code>[<i>input_type</i>]</code> then `void` is inferred.
 
 ## Component instantiation and linking
 
-Inside an expression you can instantiate other components by using the symbol `\` followed by the design name of the component. For example `\adder` instantiate a new component by using the design named `adder`.
+Inside a component chain you can instantiate other components by using the symbol `.` followed by the design name of the component. For example `.adder` instantiate a new component by using the design named `adder`.
 
-Two or more components can be *linked* (or *composed*) by using one or more spaces between them. For example let `inc` be the design of a component that increases its input (seen as an unsigned integer) by 1 and `dup` instead duplicates its input, then the following component design
+Two or more components can be linked (or *composed*) by using one or more spaces between them. For example let `inc` be the design of a component that increases its input (seen as an unsigned integer) by 1 and `dup` instead duplicates its input, then the following component design
 
-    design comp[num] = \dup \inc;
+    design comp[num] = .dup .inc;
 
 would compute 2x+1 from input x. Instead,
 
-    design comp2[num] = \inc \dup;
+    design comp2[num] = .inc .dup;
 
 would compute 2(x+1).
 
-## Types
+## Builtin types
 
 There are three different classes of types:
 
 + Builtin types;
 + Structures and arrays;
-+ Unions;
-+ Custom types.
++ Unions.
 
-### Builtin types
-These types are defined internally by the compiler and can be used to define more complex types. All these types are copyable. Currently, the following builtin types are defined:
+Builtin types are defined internally by the compiler and can be used to define more complex types. All these types are copyable. Currently, the following builtin types are defined:
 
-+ `logic`: a digital logic element that can hold two possible states, zero (`0`) and one (`1`). A `logic` connection is synthesized as a single digital pin.
++ `logic`: a digital logic element that can hold two possible states, zero (`logic::0`) and one (`logic::1`). A `logic` connection is synthesized as a single digital pin.
 + `void`: an element that has only one possible state (the null state). Since its state is always defined and can not be changed the `void` type doesn't bring any information and can be used to disable entries. A component with `void` input doesn't need to be connected to any output and is synthetized as a component without input pins. Instead, a component with `void` doesn't provide any useful information to the outside world and so will never be synthetized to real hardware.
 + `!` (never type): an element that doesn't have any valid state and so can never be initialized. The only possible way to use the `!` type is inside a variant component in order to disable some of its entries.
 
 *Remark*: A component with input port of type `void` is called *element*. The type of an element is always the type of its output port since the input port type must be `void`. Examples of elements are `b0` and `b1` which have both type `logic` and represent zero and one logical statuses respectively. 
 
-### Structures and array
+
+## Custom types
+Custom types are defined with the following general syntax:
+
+<pre><code>type <i>newtype</i> = <i>...</i>;</code></pre>
+
+where *newtype* is your custom type name. Type and components live in the same "namespaces" therefore you will have a name clash when you try to define a new type with the same name of an already existent component (however, you can define anonymous types within components).
+
+### Structures
 
 A structure type can be declared in the following way:
 
-<pre><code>struct {
+<pre><code>type <i>newtype</i> = struct {
   <i>field1</i> : <i>type1</i>,
   <i>field2</i> : <i>type2</i>,
    ...
@@ -65,21 +71,51 @@ A structure type can be declared in the following way:
 
 just like structures in C. You can omit the `: typei` part for one or more fields, in that case `typei` is assumed to be `logic`. Moreover, each field *fieldi* is also a component design with input port type the struct itself and output port type the respective *typei*.
 
-An *array* is a particular structure where each *fieldi* is equal to *i* and are declared in the following way:
+When you define a new structure type `newtype` then for each field `fieldi` of `newtype` with type `typei` a new designer named `newtype::fieldi` that retrieves the selected field from the input struct. Therefore, its input port type would be `newtype` and its output port type `typei`, the type of `fieldi`.
 
-<pre><code>[<i>n</i>]<i>type</i></code></pre>
+For example, we consider the following struct type:
 
-which is equivalent to
+    type ST = struct {
+      field_a : A,
+      field_b : B,
+    }
 
-<pre><code>struct {
-  0 : <i>type</i>,
-  1 : <i>type</i>,
-  2 : <i>type</i>,
-   ...
-  <i>n-1</i> : <i>type</i>,
-}</code></pre>
+then the following component design
 
-Two structure types are the same type if and only if have the same fields with the same name and types, ordering doesn't matter. To distinguish equal structures you should wrap them in *custom types*.
+    design get_a [ST] = .ST::field_a;
+
+has output port type `ST` and just retrieves the content of field `field_a` from the input struct.
+
+#### Struct element
+
+Let `type adder_ty = struct {add1 : num, add2 : num};` and `adder` be a design of a component with input type `adder_ty` and output type `num` which returns the sum of `add1` and `add2`. In order to use `adder` in your component chain you can do one of the following things:
+
+- set `adder_ty` as your component input type and then pass it directly to `.adder`;
+- instantiate another component with `adder_ty` as output port type and link it to `adder`;
+- instantiate a *struct element* and link it to `adder`.
+
+As its name says, a struct element is a component with input port type `void` and the selected struct as the output port type with their fields initialized with component chains:
+
+<pre><code>$adder_ty{
+   add1 = <i>chain1</i>;
+   add2 = <i>chain2</i>;
+} .adder</code></pre>
+
+where *chain1* and *chain2* are component chains describing elements (so with input port type `void`) with output port type tyhe type of *add1* and *add2* respectively (which is `num` for both of them).
+
+If you don't want to initialize a field from a new component chain but you want instead link it to a component output port then you can specify the chosen field in parenthesis:
+
+<pre><code>$adder_ty (add1){
+   add2 = <i>chain2</i>;
+} .adder</code></pre>
+
+Now `$adder_ty(add1)` is no more an element since its input port type is `num` (the type of `add1`) since it uses the input port to initialize the field `add1`. Field `add2` is still initialized with the component chain `chain2`.
+
+Once you have the `adder` component design, you can define the component `inc` (which increment the input number by 1) in the following way:
+
+    design inc[num] = $adder_ty(add1) {add2 = .num_1; } .adder;
+
+where `num_1` is an element which returns 1 as a `num`.
 
 ### Unions
 
@@ -94,70 +130,47 @@ An union type can be declared in the following way:
 
 You can omit the `: typei` part for one or more fields, in that case `typei` is assumed to be `void`. Moreover, each field *fieldi* is also a component design with input port type *typei* and output port type the union itself.
 
-Two union types are the same type if and only if have the same fields with the same name and types, ordering doesn't matter. To distinguish equal unions you should wrap them in *custom types*.
+When you define a new union type `newtype` then for each field `fieldi` of `newtype` with type `typei` a new designer named `newtype::fieldi` that generates the union from the selected field. Therefore, its input port type would be `typei`, the type of `fieldi`, and its output port type `newtype`.
 
-### Custom types
-A custom type is a type that is created by users by using already existent types. To define a new type *newtype* from an already existent type *oldtype* you can use the following declaration:
+For example, we consider the following union type:
 
-<pre><code>type <i>newtype</i> = <i>oldtype</i>;</code></pre>
+    type UN = union {
+      field_a : A,
+      field_b : B,
+    }
 
-Notice that *newtype* is different from *oldtype*, and two custom types are the same type if and only if they have the same name. Moreover, *oldtype* is implicitly convertible to *newtype* (but not the converse) and *newtype* can also be used as a component design with input port of type *oldtype* and output port type *newtype*.
+then the following component design
 
-## Struct components
-Struct components are special components that have structs as output port type. Struct componenrs can be *simple* or *linked*. A simple struct component can be instantiated in the following way:
+    design get_a [A] = .UN::field_a;
 
-<pre><code>struct{
-  <i>field1</i> = <i>exp1</i>;
-  <i>field2</i> = <i>exp2</i>;
-  <i>field3</i> = <i>exp3</i>;
-    ...
-  <i>fieldn</i> = <i>expn</i>;
-}</code></pre>
+has output port type `A` and returns the union generated by using field `field_a`.
 
-where each *expi* is an expression of an element with the same type of field *fieldi*. This expression instantiates an element with (output) type the struct with fields *field1*, *field2*, ..., *fieldn*.
+The `logic` builtin type can be seen as an union defined in the following way:
 
-For example let `adder` be a component with input port type `struct {add1 : num, add2 : num}` which returns add1 + add2, and let `num3`, `num4` be two elements with type `num` returning 3 and 4 respectively. Then an element `num7` returning 7 can be defined in the following way:
+    type logic = union {
+      0,
+      1,
+    }
 
-    design num7 =  struct {add1 = \num3; add2 = \num4;} \adder;
+#### Match component
 
-Instead a linked struct component is declared in the following way:
-
-<pre><code>struct(<i>fieldz</i>){
-  <i>field1</i> = <i>exp1</i>;
-  <i>field2</i> = <i>exp2</i>;
-  <i>field3</i> = <i>exp3</i>;
-    ...
-  <i>fieldn</i> = <i>expn</i>;
-}</code></pre>
-
-where *fieldz* is another field of the struct different from others *fieldi* fields which value is not set from an assigned expression. Instead, is binded to the instantiated component input port.
-
-For example, a component `inc3` which takes a `num` as input and returns its value increased by 3 can be defined in the following way:
-
-    design inc3[num] = struct(add1) {add2 = \num3;} \adder;
-
-where the value passed to `inc3` as input is directly assigned to `add1` field and then passed to `adder`. 
-
-You can instantiate array components with the following syntax:
-
-<pre><code>array{
-  <i>exp0</i>;
-  <i>exp1</i>;
-  <i>exp2</i>;
-    ...
-  <i>expn</i>;
-}</code></pre>
-
-and they work like simple struct components.
+### Anonymous types
 
 ## Inline components
-May happen that you component can't be representable as only composition of already existent components, and you need to use your input in multiple places of your expression. In such cases you can declare *inline components* in the following way:
+May happen that you component can't be representable as only composition of already existent components, and you need to use your input in multiple places of your component chain. In such cases you can declare *inline components* inside a component chain in the following way:
 
-<pre><code>|<i>param</i>| {<i>expression</i>} </code></pre>
+<pre><code>|<i>param</i>| <i>component chain</i> </code></pre>
 
-where *expression* is an expression describing an element (a component with `void` as input type port) in which you can use *param* as an element design. The resulting component would then have *ptype* as input port type and the *expression* type as output port type.
+where *component chain* describes a component with `void` as input port type and you can use *param* inside it as an instantiable component in order to use the input value in different places.
 
 For example, then we can implement the duplicating component `dup` by using `adder` in the following way:
 
-    design dup[num] = |x| { struct {add1 = \x; add2 = \x;} \adder };
+    design dup[num] = |x| $adder {add1 = .x; add2 = .x;};
 
+Moreover, you can use the expression
+
+<pre><code>save(<i>x</i>)</code></pre>
+
+as a synonym of
+
+<pre><code>|<i>x</i>| .<i>x</i></code></pre>
