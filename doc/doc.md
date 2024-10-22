@@ -156,21 +156,63 @@ The `logic` builtin type can be seen as an union defined in the following way:
 
 ### Anonymous types
 
-## Inline components
-May happen that you component can't be representable as only composition of already existent components, and you need to use your input in multiple places of your component chain. In such cases you can declare *inline components* inside a component chain in the following way:
+Usually when you are defining a new component you have to create a new struct/union type to use as input type of your component. If you don't need to use such type in any other component then you can define it directly inside the design declaration and instantiate it with the design name. Such types that are bounded to a design are called *anonymous* because they can only be used when you instantiate the associated component.
 
-<pre><code>|<i>param</i>| <i>component chain</i> </code></pre>
+An example of an anonymous struct bounded to the `adder` design:
 
-where *component chain* describes a component with `void` as input port type and you can use *param* inside it as an instantiable component in order to use the input value in different places.
+    design adder struct {add1 : num, add2 : num} = ...;
+
+Then the following component put in another component chain
+
+    $adder{ add1 = ...; add2 = ...; }
+
+initializes the input structure and directly passes it to a newly instantiated `adder`.
+
+In a similar fashion anonymous unions can be defined
+
+    design comp union {state1 : logic, state2 : void,} = ...;
+
+and the component can be instantiated just like a union:
+
+    .comp::state1 
+
+## set and save components
+May happen that you component can't be representable as only composition of already existent components, and you need to use your input in multiple places of your component chain. In such cases you can declare *set components* inside a component chain in the following way:
+
+<pre><code>set(<i>param</i>)</code></pre>
+
+This component has `void` as output port type, but it saves its input inside a "virtual design" named *param* which can be used later in the component chain. This component allows you to reuse the output of some component multiple times in your chain.
 
 For example, then we can implement the duplicating component `dup` by using `adder` in the following way:
 
-    design dup[num] = |x| $adder {add1 = .x; add2 = .x;};
+    design dup[num] = set(x) $adder {add1 = .x; add2 = .x;};
 
-Moreover, you can use the expression
+If you want to immediately use the saved value you can use the following component
 
 <pre><code>save(<i>x</i>)</code></pre>
 
 as a synonym of
 
-<pre><code>|<i>x</i>| .<i>x</i></code></pre>
+<pre><code>set(<i>x</i>) .<i>x</i></code></pre>
+
+## Generic types
+
+You can define generic types with the following syntax:
+
+<pre><code>type<<i>ptype1</i> <i>param1</i>, <i>ptype2</i> <i>param2</i>, <i>...</i>, <i>ptypen</i> <i>paramn</i>> <i>newtype</i> = <i>...</i></code></pre>
+
+to define *n* parameters *param1*, ..., *paramn* which can be used inside the definition of *newtype*. Each *ptypei* determines the "type" of *parami*, and currently it can be `type` (a type parameter) and `const` (a nonnegative integer constant). For example
+
+    type<type A, const N> AA = struct{ cf : array<A, N>, a : A,};
+
+### Arrays and numbers
+
+Arrays are a very special kind of generic structures with signature `array<type A, const N>` which have exactly `N` fields with names `0`, `1`, `2`, .., `N-1` (or no field if `N` is `0`) each of type `A`.
+
+Just like any struct, you can access the field *i* by using the component <code>.<i>i</i></code>. Moreover, arrays can be concatenated and you can retrieve a contiguous range of elements.
+
+Another very important generic type is the `num` type, which is defined in the following way:
+
+    type<const I> num = struct{bits : array<logic, I>};
+
+in other words, a `num<I>` is just an array of `I` bits. However, `num` represents an integer number in binary, therefore many simple arithmetic and comparison components are automatically defined for this type.
